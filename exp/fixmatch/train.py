@@ -22,14 +22,17 @@ from tqdm import tqdm
 from dataset.cifar import DATASET_GETTERS
 from utils import AverageMeter, accuracy
 
-
+''' begin add system path '''
 def add_path(path):
     if path not in sys.path:
         sys.path.insert(0, path)
 
 repo_name = 'FixMatch-pytorch'
 abs_dir = osp.realpath(".")
-add_path(osp.join(C.root_dir, 'furnace'))
+root_dir = abs_dir[:abs_dir.index(repo_name) + len(repo_name)]
+add_path(osp.join(root_dir))
+''' end add system path '''
+
 
 logger = logging.getLogger(__name__)
 best_acc = 0
