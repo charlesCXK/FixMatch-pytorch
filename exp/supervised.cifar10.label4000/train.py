@@ -353,24 +353,16 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             data_time.update(time.time() - end)
             batch_size = inputs_x.shape[0]
-            inputs = torch.cat((inputs_x, inputs_u_w, inputs_u_s)).to(args.device)
+            inputs = inputs_x.to(args.device)
             targets_x = targets_x.to(args.device)
             logits = model(inputs)
             # logits = de_interleave(logits, 2*args.mu+1)
-            logits_x = logits[:batch_size]
-            logits_u_w, logits_u_s = logits[batch_size:].chunk(2)
+            logits_x = logits
             del logits
 
             Lx = F.cross_entropy(logits_x, targets_x, reduction='mean')
 
-            pseudo_label = torch.softmax(logits_u_w.detach_()/args.T, dim=-1)
-            max_probs, targets_u = torch.max(pseudo_label, dim=-1)
-            mask = max_probs.ge(args.threshold).float()
-
-            Lu = (F.cross_entropy(logits_u_s, targets_u,
-                                  reduction='none') * mask).mean()
-
-            loss = Lx + args.lambda_u * Lu
+            loss = Lx
 
             if args.amp:
                 with amp.scale_loss(loss, optimizer) as scaled_loss:
