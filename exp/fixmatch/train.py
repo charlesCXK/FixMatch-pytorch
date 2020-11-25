@@ -201,6 +201,8 @@ def main():
     if args.local_rank in [-1, 0]:
         os.makedirs(args.out, exist_ok=True)
         writer = SummaryWriter(args.out)
+    else:
+        writer = None
 
     if args.dataset == 'cifar10':
         args.num_classes = 10
