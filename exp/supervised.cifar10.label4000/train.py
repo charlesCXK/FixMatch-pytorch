@@ -372,7 +372,6 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             losses.update(loss.item())
             losses_x.update(Lx.item())
-            losses_u.update(Lu.item())
             optimizer.step()
             scheduler.step()
             if args.use_ema:
@@ -381,7 +380,6 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             batch_time.update(time.time() - end)
             end = time.time()
-            mask_probs.update(mask.mean().item())
             if not args.no_progress:
                 p_bar.set_description("Train Epoch: {epoch}/{epochs:4}. Iter: {batch:4}/{iter:4}. LR: {lr:.4f}. Data: {data:.3f}s. Batch: {bt:.3f}s. Loss: {loss:.4f}. Loss_x: {loss_x:.4f}. Loss_u: {loss_u:.4f}. Mask: {mask:.2f}. ".format(
                     epoch=epoch + 1,
@@ -391,10 +389,7 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
                     lr=scheduler.get_last_lr()[0],
                     data=data_time.avg,
                     bt=batch_time.avg,
-                    loss=losses.avg,
-                    loss_x=losses_x.avg,
-                    loss_u=losses_u.avg,
-                    mask=mask_probs.avg))
+                    loss=losses.avg))
                 p_bar.update()
 
         if not args.no_progress:
@@ -409,15 +404,11 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             test_loss, test_acc = test(args, test_loader, test_model, epoch)
 
             writer.add_scalar('train/1.train_loss', losses.avg, epoch)
-            writer.add_scalar('train/2.train_loss_x', losses_x.avg, epoch)
-            writer.add_scalar('train/3.train_loss_u', losses_u.avg, epoch)
             writer.add_scalar('train/4.mask', mask_probs.avg, epoch)
             writer.add_scalar('test/1.test_acc', test_acc, epoch)
             writer.add_scalar('test/2.test_loss', test_loss, epoch)
 
             run.log(name='train/1.train_loss', value=losses.avg)
-            run.log(name='train/2.train_loss_x', value=losses_x.avg)
-            run.log(name='train/3.train_loss_u', value=losses_u.avg)
             run.log(name='train/4.mask', value=mask_probs.avg)
             run.log(name='test/1.test_acc', value=test_acc)
             run.log(name='test/2.test_loss', value=test_loss)
