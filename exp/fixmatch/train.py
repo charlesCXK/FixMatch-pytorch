@@ -19,9 +19,6 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from dataset.cifar import DATASET_GETTERS
-from utils import AverageMeter, accuracy
-
 ''' begin add system path '''
 def add_path(path):
     if path not in sys.path:
@@ -30,9 +27,13 @@ def add_path(path):
 repo_name = 'FixMatch-pytorch'
 abs_dir = osp.realpath(".")
 root_dir = abs_dir[:abs_dir.index(repo_name) + len(repo_name)]
-print(root_dir)
 add_path(osp.join(root_dir))
 ''' end add system path '''
+
+
+from dataset.cifar import DATASET_GETTERS
+from utils import AverageMeter, accuracy
+
 
 
 logger = logging.getLogger(__name__)
