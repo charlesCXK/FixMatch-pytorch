@@ -4,7 +4,7 @@
 #python -m torch.distributed.launch --nproc_per_node=$NGPUS train.py
 
 nvidia-smi
-source activate ssc
+source activate base
 
 export cxk_volna=$1"/"
 export snapshot_iter=1
