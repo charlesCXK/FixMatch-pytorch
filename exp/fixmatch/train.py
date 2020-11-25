@@ -34,6 +34,13 @@ add_path(osp.join(root_dir))
 from dataset.cifar import DATASET_GETTERS
 from utils import AverageMeter, accuracy
 
+try:
+    from azureml.core import Run
+    azure = True
+    run = Run.get_context()
+except:
+    azure = False
+
 
 
 logger = logging.getLogger(__name__)
@@ -414,6 +421,13 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             writer.add_scalar('train/4.mask', mask_probs.avg, epoch)
             writer.add_scalar('test/1.test_acc', test_acc, epoch)
             writer.add_scalar('test/2.test_loss', test_loss, epoch)
+
+            run.log(name='train/1.train_loss', value=losses.avg)
+            run.log(name='train/2.train_loss_x', value=losses_x.avg)
+            run.log(name='train/3.train_loss_u', value=losses_u.avg)
+            run.log(name='train/4.mask', value=mask_probs.avg)
+            run.log(name='test/1.test_acc', value=test_acc)
+            run.log(name='test/2.test_loss', value=test_loss)
 
             is_best = test_acc > best_acc
             best_acc = max(test_acc, best_acc)
