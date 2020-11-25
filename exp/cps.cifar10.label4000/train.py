@@ -363,9 +363,9 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             Lx = F.cross_entropy(logits_x_left, targets_x, reduction='mean') + F.cross_entropy(logits_x_right, targets_x, reduction='mean')
 
-            pseudo_label_left = torch.softmax(logits_u_left.detach_()/args.T, dim=-1)
+            pseudo_label_left = torch.softmax(logits_u_left.detach()/args.T, dim=-1)
             max_probs_left, targets_u_left = torch.max(pseudo_label_left, dim=-1)
-            pseudo_label_right = torch.softmax(logits_u_right.detach_()/args.T, dim=-1)
+            pseudo_label_right = torch.softmax(logits_u_right.detach()/args.T, dim=-1)
             max_probs_right, targets_u_right = torch.max(pseudo_label_right, dim=-1)
             # mask = max_probs.ge(args.threshold).float()
 
