@@ -355,20 +355,22 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             batch_size = inputs_x.shape[0]
             inputs = torch.cat((inputs_x, inputs_u_w, inputs_u_s)).to(args.device)
             targets_x = targets_x.to(args.device)
-            logits = model(inputs)
-            # logits = de_interleave(logits, 2*args.mu+1)
-            logits_x = logits[:batch_size]
-            logits_u_w, logits_u_s = logits[batch_size:].chunk(2)
-            del logits
+            logits_left, logits_right = model(inputs)
+            logits_x_left = logits_left[:batch_size]
+            logits_x_right = logits_right[:batch_size]
+            logits_u_left = logits_left[batch_size:] #.chunk(2)
+            logits_u_right = logits_right[batch_size:]
 
-            Lx = F.cross_entropy(logits_x, targets_x, reduction='mean')
+            Lx = F.cross_entropy(logits_x_left, targets_x, reduction='mean') + F.cross_entropy(logits_x_right, targets_x, reduction='mean')
 
-            pseudo_label = torch.softmax(logits_u_w.detach_()/args.T, dim=-1)
-            max_probs, targets_u = torch.max(pseudo_label, dim=-1)
-            mask = max_probs.ge(args.threshold).float()
+            pseudo_label_left = torch.softmax(logits_u_left.detach_()/args.T, dim=-1)
+            max_probs_left, targets_u_left = torch.max(pseudo_label_left, dim=-1)
+            pseudo_label_right = torch.softmax(logits_u_right.detach_()/args.T, dim=-1)
+            max_probs_right, targets_u_right = torch.max(pseudo_label_right, dim=-1)
+            # mask = max_probs.ge(args.threshold).float()
 
-            Lu = (F.cross_entropy(logits_u_s, targets_u,
-                                  reduction='none') * mask).mean()
+            # Lu = (F.cross_entropy(logits_u_s, targets_u, reduction='none') * mask).mean()
+            Lu = (F.cross_entropy(logits_u_left, pseudo_label_right, reduction='none')).mean() + (F.cross_entropy(logits_u_right, pseudo_label_left, reduction='none')).mean()
 
             loss = Lx + args.lambda_u * Lu
 
@@ -389,9 +391,8 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             batch_time.update(time.time() - end)
             end = time.time()
-            mask_probs.update(mask.mean().item())
             if not args.no_progress:
-                p_bar.set_description("Train Epoch: {epoch}/{epochs:4}. Iter: {batch:4}/{iter:4}. LR: {lr:.4f}. Data: {data:.3f}s. Batch: {bt:.3f}s. Loss: {loss:.4f}. Loss_x: {loss_x:.4f}. Loss_u: {loss_u:.4f}. Mask: {mask:.2f}. ".format(
+                p_bar.set_description("Train Epoch: {epoch}/{epochs:4}. Iter: {batch:4}/{iter:4}. LR: {lr:.4f}. Data: {data:.3f}s. Batch: {bt:.3f}s. Loss: {loss:.4f}. Loss_x: {loss_x:.4f}. Loss_u: {loss_u:.4f}. ".format(
                     epoch=epoch + 1,
                     epochs=args.epochs,
                     batch=batch_idx + 1,
@@ -401,8 +402,7 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
                     bt=batch_time.avg,
                     loss=losses.avg,
                     loss_x=losses_x.avg,
-                    loss_u=losses_u.avg,
-                    mask=mask_probs.avg))
+                    loss_u=losses_u.avg))
                 p_bar.update()
 
         if not args.no_progress:
@@ -419,14 +419,12 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             writer.add_scalar('train/1.train_loss', losses.avg, epoch)
             writer.add_scalar('train/2.train_loss_x', losses_x.avg, epoch)
             writer.add_scalar('train/3.train_loss_u', losses_u.avg, epoch)
-            writer.add_scalar('train/4.mask', mask_probs.avg, epoch)
             writer.add_scalar('test/1.test_acc', test_acc, epoch)
             writer.add_scalar('test/2.test_loss', test_loss, epoch)
 
             run.log(name='train/1.train_loss', value=losses.avg)
             run.log(name='train/2.train_loss_x', value=losses_x.avg)
             run.log(name='train/3.train_loss_u', value=losses_u.avg)
-            run.log(name='train/4.mask', value=mask_probs.avg)
             run.log(name='test/1.test_acc', value=test_acc)
             run.log(name='test/2.test_loss', value=test_loss)
 
