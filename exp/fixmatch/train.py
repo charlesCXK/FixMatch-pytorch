@@ -30,6 +30,7 @@ def add_path(path):
 repo_name = 'FixMatch-pytorch'
 abs_dir = osp.realpath(".")
 root_dir = abs_dir[:abs_dir.index(repo_name) + len(repo_name)]
+print(root_dir)
 add_path(osp.join(root_dir))
 ''' end add system path '''
 
