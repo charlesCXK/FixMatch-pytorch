@@ -370,7 +370,7 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             # mask = max_probs.ge(args.threshold).float()
 
             # Lu = (F.cross_entropy(logits_u_s, targets_u, reduction='none') * mask).mean()
-            Lu = (F.cross_entropy(logits_u_left, pseudo_label_right, reduction='none')).mean() + (F.cross_entropy(logits_u_right, pseudo_label_left, reduction='none')).mean()
+            Lu = (F.cross_entropy(logits_u_left, targets_u_right, reduction='none')).mean() + (F.cross_entropy(logits_u_right, targets_u_left, reduction='none')).mean()
 
             loss = Lx + args.lambda_u * Lu
 
