@@ -225,7 +225,7 @@ def main():
             args.model_width = 64
 
     labeled_dataset, unlabeled_dataset, test_dataset = DATASET_GETTERS[args.dataset](
-        args, './data')
+        args, os.path.join(root_dir, 'data'))
 
     train_sampler = RandomSampler if args.local_rank == -1 else DistributedSampler
 
