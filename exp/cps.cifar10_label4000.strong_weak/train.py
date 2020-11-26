@@ -263,18 +263,18 @@ def main():
 
     no_decay = ['bias', 'bn']
     grouped_parameters = [
-        {'params': [p for n, p in model.left_model.parameters() if not any(
+        {'params': [p for n, p in model.left_model.named_parameters() if not any(
             nd in n for nd in no_decay)], 'weight_decay': args.wdecay},
-        {'params': [p for n, p in model.left_model.parameters() if any(
+        {'params': [p for n, p in model.left_model.named_parameters() if any(
             nd in n for nd in no_decay)], 'weight_decay': 0.0}
     ]
     optimizer = optim.SGD(grouped_parameters, lr=args.lr,
                           momentum=0.9, nesterov=args.nesterov)
 
     grouped_parameters_right = [
-        {'params': [p for n, p in model.right_model.parameters() if not any(
+        {'params': [p for n, p in model.right_model.named_parameters() if not any(
             nd in n for nd in no_decay)], 'weight_decay': args.wdecay},
-        {'params': [p for n, p in model.right_model.parameters() if any(
+        {'params': [p for n, p in model.right_model.named_parameters() if any(
             nd in n for nd in no_decay)], 'weight_decay': 0.0}
     ]
     optimizer_right = optim.SGD(grouped_parameters_right, lr=args.lr,
