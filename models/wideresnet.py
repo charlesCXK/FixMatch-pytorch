@@ -124,13 +124,11 @@ class DualWideResNet(nn.Module):
         self.right_model = WideResNet(depth=depth, widen_factor=widen_factor,
                                      drop_rate=drop_rate, num_classes=num_classes)
 
-    def forward(self, x):
-        if self.training:
-            left_out = self.left_model(x)
-            right_out = self.right_model(x)
-            return left_out, right_out
-        else:
+    def forward(self, x, step=1):
+        if step==1:
             return self.left_model(x)
+        else:
+            return self.right_model(x)
 
 
 def build_wideresnet(depth, widen_factor, dropout, num_classes):

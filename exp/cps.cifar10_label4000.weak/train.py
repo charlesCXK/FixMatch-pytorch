@@ -353,9 +353,11 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             data_time.update(time.time() - end)
             batch_size = inputs_x.shape[0]
-            inputs = torch.cat((inputs_x, inputs_u_w, inputs_u_s)).to(args.device)
+            inputs = torch.cat((inputs_x, inputs_u_w)).to(args.device)
             targets_x = targets_x.to(args.device)
-            logits_left, logits_right = model(inputs)
+            logits_left = model(inputs, step=1)
+            logits_right = model(inputs, step=2)
+
             logits_x_left = logits_left[:batch_size]
             logits_x_right = logits_right[:batch_size]
             logits_u_left = logits_left[batch_size:] #.chunk(2)
