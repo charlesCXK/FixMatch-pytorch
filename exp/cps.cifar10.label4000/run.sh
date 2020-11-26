@@ -10,7 +10,6 @@ export cxk_volna=$1"/"
 export snapshot_iter=1
 
 export learning_rate=0.03
-export nepochs=80
 export batch_size=16 # 16*4
 export NGPUS=4
 export DATASET=cifar10

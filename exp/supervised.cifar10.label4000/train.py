@@ -72,7 +72,7 @@ def get_cosine_schedule_with_warmup(optimizer,
         if current_step < num_warmup_steps:
             return float(current_step) / float(max(1, num_warmup_steps))
         no_progress = float(current_step - num_warmup_steps) / \
-            float(max(1, num_training_steps - num_warmup_steps))
+                      float(max(1, num_training_steps - num_warmup_steps))
         return max(0., math.cos(math.pi * num_cycles * no_progress))
 
     return LambdaLR(optimizer, _lr_lambda, last_epoch)
@@ -140,9 +140,9 @@ def main():
                         help="random seed")
     parser.add_argument("--amp", action="store_true",
                         help="use 16-bit (mixed) precision through NVIDIA apex AMP")
-    parser.add_argument("--opt_level", type=str, default="O1",
+    parser.add_argument("--opt_level", type=str, default="O0",
                         help="apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
-                        "See details at https://nvidia.github.io/apex/amp.html")
+                             "See details at https://nvidia.github.io/apex/amp.html")
     parser.add_argument("--local_rank", type=int, default=-1,
                         help="For distributed training: local_rank")
     parser.add_argument('--no-progress', action='store_true',
