@@ -316,7 +316,7 @@ def main():
         # model = DistributedDataParallel(model)
         model = torch.nn.parallel.DistributedDataParallel(
             model, device_ids=[args.local_rank],
-            output_device=args.local_rank, find_unused_parameters=True)
+            output_device=args.local_rank, find_unused_parameters=False)
 
     logger.info("***** Running training *****")
     logger.info(f"  Task = {args.dataset}@{args.num_labeled}")
