@@ -140,7 +140,7 @@ def main():
                         help="random seed")
     parser.add_argument("--amp", action="store_true",
                         help="use 16-bit (mixed) precision through NVIDIA apex AMP")
-    parser.add_argument("--opt_level", type=str, default="O1",
+    parser.add_argument("--opt_level", type=str, default="O0",
                         help="apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
                         "See details at https://nvidia.github.io/apex/amp.html")
     parser.add_argument("--local_rank", type=int, default=-1,

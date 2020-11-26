@@ -140,7 +140,7 @@ def main():
                         help="random seed")
     parser.add_argument("--amp", action="store_true",
                         help="use 16-bit (mixed) precision through NVIDIA apex AMP")
-    parser.add_argument("--opt_level", type=str, default="O1",
+    parser.add_argument("--opt_level", type=str, default="O0",
                         help="apex AMP optimization level selected in ['O0', 'O1', 'O2', and 'O3']."
                         "See details at https://nvidia.github.io/apex/amp.html")
     parser.add_argument("--local_rank", type=int, default=-1,
@@ -353,11 +353,10 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             data_time.update(time.time() - end)
             batch_size = inputs_x.shape[0]
-            inputs = interleave(
-                torch.cat((inputs_x, inputs_u_w, inputs_u_s)), 2*args.mu+1).to(args.device)
+            inputs = torch.cat((inputs_x, inputs_u_w, inputs_u_s)).to(args.device)
             targets_x = targets_x.to(args.device)
             logits = model(inputs)
-            logits = de_interleave(logits, 2*args.mu+1)
+            # logits = de_interleave(logits, 2*args.mu+1)
             logits_x = logits[:batch_size]
             logits_u_w, logits_u_s = logits[batch_size:].chunk(2)
             del logits
