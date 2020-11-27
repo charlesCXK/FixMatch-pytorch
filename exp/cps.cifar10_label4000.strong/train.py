@@ -7,6 +7,7 @@ import random
 import shutil
 import time
 import os.path as osp
+import torch.distributed as dist
 from collections import OrderedDict
 
 import numpy as np
@@ -18,6 +19,7 @@ from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+from apex.parallel import DistributedDataParallel
 
 ''' begin add system path '''
 def add_path(path):
@@ -261,17 +263,28 @@ def main():
 
     no_decay = ['bias', 'bn']
     grouped_parameters = [
-        {'params': [p for n, p in model.named_parameters() if not any(
+        {'params': [p for n, p in model.left_model.named_parameters() if not any(
             nd in n for nd in no_decay)], 'weight_decay': args.wdecay},
-        {'params': [p for n, p in model.named_parameters() if any(
+        {'params': [p for n, p in model.left_model.named_parameters() if any(
             nd in n for nd in no_decay)], 'weight_decay': 0.0}
     ]
     optimizer = optim.SGD(grouped_parameters, lr=args.lr,
                           momentum=0.9, nesterov=args.nesterov)
 
+    grouped_parameters_right = [
+        {'params': [p for n, p in model.right_model.named_parameters() if not any(
+            nd in n for nd in no_decay)], 'weight_decay': args.wdecay},
+        {'params': [p for n, p in model.right_model.named_parameters() if any(
+            nd in n for nd in no_decay)], 'weight_decay': 0.0}
+    ]
+    optimizer_right = optim.SGD(grouped_parameters_right, lr=args.lr,
+                          momentum=0.9, nesterov=args.nesterov)
+
     args.epochs = math.ceil(args.total_steps / args.eval_step)
     scheduler = get_cosine_schedule_with_warmup(
         optimizer, args.warmup, args.total_steps)
+    scheduler_right = get_cosine_schedule_with_warmup(
+        optimizer_right, args.warmup, args.total_steps)
 
     if args.use_ema:
         from models.ema import ModelEMA
@@ -291,17 +304,19 @@ def main():
         if args.use_ema:
             ema_model.ema.load_state_dict(checkpoint['ema_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer'])
+        optimizer_right.load_state_dict(checkpoint['optimizer_right'])
         scheduler.load_state_dict(checkpoint['scheduler'])
 
-    if args.amp:
-        from apex import amp
-        model, optimizer = amp.initialize(
-            model, optimizer, opt_level=args.opt_level)
+    # if args.amp:
+    #     from apex import amp
+    #     model, optimizer = amp.initialize(
+    #         model, optimizer, opt_level=args.opt_level)
 
     if args.local_rank != -1:
-        model = torch.nn.parallel.DistributedDataParallel(
-            model, device_ids=[args.local_rank],
-            output_device=args.local_rank, find_unused_parameters=True)
+        model = DistributedDataParallel(model)
+        # model = torch.nn.parallel.DistributedDataParallel(
+        #     model, device_ids=[args.local_rank],
+        #     output_device=args.local_rank, find_unused_parameters=False)
 
     logger.info("***** Running training *****")
     logger.info(f"  Task = {args.dataset}@{args.num_labeled}")
@@ -313,13 +328,11 @@ def main():
 
     model.zero_grad()
     train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
-          model, optimizer, ema_model, scheduler, writer)
+          model, optimizer, optimizer_right, ema_model, scheduler, scheduler_right, writer)
 
 
 def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
-          model, optimizer, ema_model, scheduler, writer):
-    if args.amp:
-        from apex import amp
+          model, optimizer, optimizer_right, ema_model, scheduler, scheduler_right, writer):
     global best_acc
     test_accs = []
     batch_time = AverageMeter()
@@ -354,9 +367,10 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             data_time.update(time.time() - end)
             batch_size = inputs_x.shape[0]
             inputs = torch.cat((inputs_x, inputs_u_s)).to(args.device)
+            inputs_right = torch.cat((inputs_x, inputs_u_s)).to(args.device)
             targets_x = targets_x.to(args.device)
             logits_left = model(inputs, step=1)
-            logits_right = model(inputs, step=2)
+            logits_right = model(inputs_right, step=2)
 
             logits_x_left = logits_left[:batch_size]
             logits_x_right = logits_right[:batch_size]
@@ -364,6 +378,8 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             logits_u_right = logits_right[batch_size:]
 
             Lx = F.cross_entropy(logits_x_left, targets_x, reduction='mean') + F.cross_entropy(logits_x_right, targets_x, reduction='mean')
+            dist.all_reduce(Lx, dist.ReduceOp.SUM)
+            Lx = Lx / args.world_size
 
             pseudo_label_left = torch.softmax(logits_u_left.detach()/args.T, dim=-1)
             max_probs_left, targets_u_left = torch.max(pseudo_label_left, dim=-1)
@@ -373,20 +389,20 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             # Lu = (F.cross_entropy(logits_u_s, targets_u, reduction='none') * mask).mean()
             Lu = (F.cross_entropy(logits_u_left, targets_u_right, reduction='none')).mean() + (F.cross_entropy(logits_u_right, targets_u_left, reduction='none')).mean()
+            dist.all_reduce(Lu, dist.ReduceOp.SUM)
+            Lu = Lu / args.world_size
 
             loss = Lx + args.lambda_u * Lu
 
-            if args.amp:
-                with amp.scale_loss(loss, optimizer) as scaled_loss:
-                    scaled_loss.backward()
-            else:
-                loss.backward()
+            loss.backward()
 
             losses.update(loss.item())
             losses_x.update(Lx.item())
             losses_u.update(Lu.item())
             optimizer.step()
             scheduler.step()
+            optimizer_right.step()
+            scheduler_right.step()
             if args.use_ema:
                 ema_model.update(model)
             model.zero_grad()
@@ -445,6 +461,8 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
                 'best_acc': best_acc,
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict(),
+                'optimizer_right': optimizer_right.state_dict(),
+                'scheduler_right': scheduler_right.state_dict(),
             }, is_best, args.out)
 
             test_accs.append(test_acc)
