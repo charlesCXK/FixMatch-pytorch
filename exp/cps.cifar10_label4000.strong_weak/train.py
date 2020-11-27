@@ -19,7 +19,7 @@ from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-# from apex.parallel import DistributedDataParallel
+from apex.parallel import DistributedDataParallel
 
 ''' begin add system path '''
 def add_path(path):
