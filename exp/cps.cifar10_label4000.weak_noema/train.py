@@ -122,7 +122,7 @@ def main():
                         help='weight decay')
     parser.add_argument('--nesterov', action='store_true', default=True,
                         help='use nesterov momentum')
-    parser.add_argument('--use-ema', action='store_true', default=True,
+    parser.add_argument('--use-ema', action='store_true', default=False,
                         help='use EMA model')
     parser.add_argument('--ema-decay', default=0.999, type=float,
                         help='EMA decay rate')
