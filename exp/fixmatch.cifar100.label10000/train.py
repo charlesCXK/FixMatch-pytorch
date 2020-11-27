@@ -7,6 +7,7 @@ import random
 import shutil
 import time
 import os.path as osp
+import torch.distributed as dist
 from collections import OrderedDict
 
 import numpy as np
@@ -18,6 +19,7 @@ from torch.utils.data import DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
+from apex.parallel import DistributedDataParallel
 
 ''' begin add system path '''
 def add_path(path):
@@ -293,15 +295,16 @@ def main():
         optimizer.load_state_dict(checkpoint['optimizer'])
         scheduler.load_state_dict(checkpoint['scheduler'])
 
-    if args.amp:
-        from apex import amp
-        model, optimizer = amp.initialize(
-            model, optimizer, opt_level=args.opt_level)
+    # if args.amp:
+    #     from apex import amp
+    #     model, optimizer = amp.initialize(
+    #         model, optimizer, opt_level=args.opt_level)
 
     if args.local_rank != -1:
-        model = torch.nn.parallel.DistributedDataParallel(
-            model, device_ids=[args.local_rank],
-            output_device=args.local_rank, find_unused_parameters=True)
+        model = DistributedDataParallel(model)
+        # model = torch.nn.parallel.DistributedDataParallel(
+        #     model, device_ids=[args.local_rank],
+        #     output_device=args.local_rank, find_unused_parameters=True)
 
     logger.info("***** Running training *****")
     logger.info(f"  Task = {args.dataset}@{args.num_labeled}")
@@ -318,8 +321,8 @@ def main():
 
 def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
           model, optimizer, ema_model, scheduler, writer):
-    if args.amp:
-        from apex import amp
+    # if args.amp:
+    #     from apex import amp
     global best_acc
     test_accs = []
     batch_time = AverageMeter()
@@ -362,6 +365,8 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
             del logits
 
             Lx = F.cross_entropy(logits_x, targets_x, reduction='mean')
+            dist.all_reduce(Lx, dist.ReduceOp.SUM)
+            Lx = Lx / args.world_size
 
             pseudo_label = torch.softmax(logits_u_w.detach_()/args.T, dim=-1)
             max_probs, targets_u = torch.max(pseudo_label, dim=-1)
@@ -369,14 +374,13 @@ def train(args, labeled_trainloader, unlabeled_trainloader, test_loader,
 
             Lu = (F.cross_entropy(logits_u_s, targets_u,
                                   reduction='none') * mask).mean()
+            dist.all_reduce(Lu, dist.ReduceOp.SUM)
+            Lu = Lu / args.world_size
 
             loss = Lx + args.lambda_u * Lu
 
-            if args.amp:
-                with amp.scale_loss(loss, optimizer) as scaled_loss:
-                    scaled_loss.backward()
-            else:
-                loss.backward()
+
+            loss.backward()
 
             losses.update(loss.item())
             losses_x.update(Lx.item())

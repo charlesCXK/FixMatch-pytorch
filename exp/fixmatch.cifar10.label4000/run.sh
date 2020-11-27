@@ -19,3 +19,8 @@ export LABEL=4000
 python -m torch.distributed.launch --nproc_per_node $NGPUS ./train.py \
 --dataset $DATASET --num-labeled $LABEL --arch wideresnet --batch-size $batch_size --lr $learning_rate \
 --expand-labels --seed 5 --out results/cifar10@4000
+
+
+#python -m torch.distributed.launch --nproc_per_node 1 ./train.py \
+#--dataset cifar10 --num-labeled 4000 --arch wideresnet --batch-size 4 --lr 0.03 \
+#--expand-labels --seed 5 --out results/cifar10@4000
