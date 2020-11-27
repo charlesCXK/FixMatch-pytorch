@@ -313,10 +313,10 @@ def main():
     #         model, optimizer, opt_level=args.opt_level)
 
     if args.local_rank != -1:
-        # model = DistributedDataParallel(model)
-        model = torch.nn.parallel.DistributedDataParallel(
-            model, device_ids=[args.local_rank],
-            output_device=args.local_rank, find_unused_parameters=False)
+        model = DistributedDataParallel(model)
+        # model = torch.nn.parallel.DistributedDataParallel(
+        #     model, device_ids=[args.local_rank],
+        #     output_device=args.local_rank, find_unused_parameters=False)
 
     logger.info("***** Running training *****")
     logger.info(f"  Task = {args.dataset}@{args.num_labeled}")
