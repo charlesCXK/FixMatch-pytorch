@@ -289,6 +289,8 @@ def main():
     if args.use_ema:
         from models.ema import ModelEMA
         ema_model = ModelEMA(args, model, args.ema_decay)
+    else:
+        ema_model = None
 
     args.start_epoch = 0
 
